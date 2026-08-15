@@ -70,7 +70,7 @@ function wordsIn(name) {
  * "trucker's cab, 3am" leans on the late-night road tracks; "sangeet" leans on
  * the loud ones. Note what this is not: there is no table of known station names
  * anywhere. The name stays free text, the tags live on the tracks, and the match
- * is done at station-creation time.
+ * happens once, when the station is created.
  *
  * Two deliberate escape hatches, both of which matter more than the feature:
  *   - fewer than two matches falls back to the whole library, because a station
@@ -87,17 +87,11 @@ export function tracksForName(tracks, name) {
 		const tags = Array.isArray(track.tags) ? track.tags : []
 		return tags.some((raw) => {
 			const tag = String(raw).toLowerCase()
-			return tag === word_match(tag, words)
+			return words.some((word) => tag === word || tag.startsWith(word) || word.startsWith(tag))
 		})
 	})
 
 	return matched.length >= 2 ? matched : tracks
-}
-
-/** True when any word in the name is the tag, a prefix of it, or extends it. */
-function word_match(tag, words) {
-	const hit = words.find((word) => tag === word || tag.startsWith(word) || word.startsWith(tag))
-	return hit === undefined ? null : tag
 }
 
 /**

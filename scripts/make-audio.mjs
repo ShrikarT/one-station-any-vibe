@@ -7,6 +7,10 @@
  * the rights to. Fixed seeds mean every clone renders byte-identical files, so the
  * wavs are gitignored and regenerated on npm install instead of living in git.
  *
+ * Each bed carries tags, which is how a station name picks its own music without
+ * anything resembling a preset list of stations. See tracksForName() in
+ * server/stations.js. For real music instead of these, see scripts/fetch-songs.mjs.
+ *
  *   npm run audio
  */
 
@@ -31,14 +35,14 @@ const SCALES = {
 }
 
 const TRACKS = [
-	{ id: "chai-stall-morning", title: "Chai Stall Morning", seconds: 32, seed: 101, rootMidi: 57, scale: "bhoop", bpm: 84, brightness: 3400 },
-	{ id: "hill-road-dhaba", title: "Hill Road Dhaba", seconds: 36, seed: 202, rootMidi: 55, scale: "durga", bpm: 76, brightness: 3000 },
-	{ id: "truckers-cab-night", title: "Trucker's Cab, 3AM", seconds: 40, seed: 303, rootMidi: 50, scale: "malkauns", bpm: 68, brightness: 2400 },
-	{ id: "barber-shop-radio", title: "Barber Shop Radio", seconds: 30, seed: 404, rootMidi: 60, scale: "kafi", bpm: 92, brightness: 3800 },
-	{ id: "platform-four", title: "Platform Four", seconds: 34, seed: 505, rootMidi: 58, scale: "yaman", bpm: 88, brightness: 3200 },
-	{ id: "monsoon-window", title: "Monsoon Window", seconds: 38, seed: 606, rootMidi: 53, scale: "kafi", bpm: 72, brightness: 2600 },
-	{ id: "cassette-side-b", title: "Cassette, Side B", seconds: 28, seed: 707, rootMidi: 62, scale: "bhoop", bpm: 96, brightness: 3600 },
-	{ id: "long-drive-ghat", title: "Long Drive, Ghat Road", seconds: 42, seed: 808, rootMidi: 48, scale: "malkauns", bpm: 64, brightness: 2200 },
+	{ id: "chai-stall-morning", title: "Chai Stall Morning", seconds: 32, seed: 101, rootMidi: 57, scale: "bhoop", bpm: 84, brightness: 3400, tags: ["chai", "stall", "morning", "tea", "slow", "nostalgia"] },
+	{ id: "hill-road-dhaba", title: "Hill Road Dhaba", seconds: 36, seed: 202, rootMidi: 55, scale: "durga", bpm: 76, brightness: 3000, tags: ["dhaba", "hill", "road", "highway", "travel", "trip"] },
+	{ id: "truckers-cab-night", title: "Trucker's Cab, 3AM", seconds: 40, seed: 303, rootMidi: 50, scale: "malkauns", bpm: 68, brightness: 2400, tags: ["trucker", "truck", "cab", "night", "3am", "late", "highway", "road"] },
+	{ id: "barber-shop-radio", title: "Barber Shop Radio", seconds: 30, seed: 404, rootMidi: 60, scale: "kafi", bpm: 92, brightness: 3800, tags: ["barber", "saloon", "shop", "radio", "retro", "nostalgia"] },
+	{ id: "platform-four", title: "Platform Four", seconds: 34, seed: 505, rootMidi: 58, scale: "yaman", bpm: 88, brightness: 3200, tags: ["platform", "train", "station", "travel", "waiting", "night"] },
+	{ id: "monsoon-window", title: "Monsoon Window", seconds: 38, seed: 606, rootMidi: 53, scale: "kafi", bpm: 72, brightness: 2600, tags: ["monsoon", "rain", "window", "slow", "sad", "night"] },
+	{ id: "cassette-side-b", title: "Cassette, Side B", seconds: 28, seed: 707, rootMidi: 62, scale: "bhoop", bpm: 96, brightness: 3600, tags: ["cassette", "tape", "retro", "nostalgia", "90s", "radio"] },
+	{ id: "long-drive-ghat", title: "Long Drive, Ghat Road", seconds: 42, seed: 808, rootMidi: 48, scale: "malkauns", bpm: 64, brightness: 2200, tags: ["drive", "ghat", "road", "highway", "night", "travel", "trip"] },
 ]
 
 /** Deterministic PRNG, so the same seed always renders the same file. */
@@ -195,6 +199,7 @@ for (const track of TRACKS) {
 		src: `/audio/${track.id}.wav`,
 		// Exact, not measured: the client schedules against this number.
 		durationMs: track.seconds * 1000,
+		tags: track.tags,
 	})
 	console.log(`  ${track.id}.wav  ${track.seconds}s  ${(wav.length / 1024).toFixed(0)}KB`)
 }
