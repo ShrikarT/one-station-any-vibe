@@ -51,6 +51,18 @@ being true rather than decorative.
 | 9 | Disconnected clients removed from tracked state | `server/index.js` → socket `close` handler calls `registry.leave()`, which deletes from `station.members`; a 15s heartbeat also reaps sockets that vanished without a close frame. |
 | 10 | Join and leave logged distinctly | `server/stations.js` emits `join` and `leave` events; `server/index.js` prints `[station:join]` and `[station:leave]` with client id, reason and listen duration. |
 
+Both suites run offline, with no fixtures and no mocking of the parts that matter:
+
+```bash
+npm test        # 27 assertions on the sync maths
+npm run smoke   # boots the real server, drives it with three WebSocket clients, and
+                # asserts cases 3, 5, 7, 8, 9 and 10 end to end (22 checks)
+```
+
+The smoke run is the one worth reading the output of. It proves the server's idea of elapsed time and
+`lib/sync/clock.js` agree to the millisecond on a live station — the two could drift apart silently,
+and a unit test alone would not notice.
+
 ---
 
 ## How the sync actually works
@@ -145,8 +157,12 @@ public/styles.css        warm and dim; a radio on a shelf, not a dashboard
 public/app.js            offset measurement, join/reconnect, UI, telemetry
 public/audio-engine.js   the only file that starts sound, and only on a schedule
 public/sw.js             committed service worker: shell + audio caches
+public/art/              the dhaba scene, hand-authored SVG so it stays 12KB
 
 scripts/make-audio.mjs   synthesises the eight station beds (no deps)
+scripts/fetch-songs.mjs  pulls a real, tagged library with yt-dlp
+scripts/use-my-audio.mjs builds a manifest from audio you already have
+scripts/smoke.mjs        end-to-end checks against a live server
 ```
 
 ### Commands
@@ -154,7 +170,10 @@ scripts/make-audio.mjs   synthesises the eight station beds (no deps)
 ```bash
 npm start          # serve on PORT (default 3000)
 npm test           # the sync unit tests
-npm run audio      # regenerate public/audio/*.wav
+npm run smoke      # end-to-end: boots the server, drives it with real sockets
+npm run songs      # download a real library (needs yt-dlp + ffmpeg)
+npm run audio      # regenerate the synthesised beds
+npm run audio:scan # build a manifest from files already in public/audio/
 npm run build:sync # lib/sync/clock.ts -> public/lib/sync/clock.js
 npm run typecheck  # tsc --noEmit
 ```
@@ -185,8 +204,20 @@ not have the rights to, and a sync demo needs audio that can be seeked into, loo
 wav files are gitignored and generated on `npm install` from fixed seeds, so every clone renders
 byte-identical files instead of carrying 12MB through git history.
 
-Swapping in real tracks means dropping files into `public/audio/` and editing `tracks.json`. Nothing
-in the sync path knows or cares what the audio is.
+For real music, `npm run songs` fetches a library with yt-dlp — four moods, from cassette-era Hindi
+through to whatever is loud this year. It locates `yt-dlp` and `ffmpeg` even when they are installed
+but not on `PATH`, which is the normal state of affairs on Windows. Those files are gitignored too,
+and `make-audio.mjs` refuses to overwrite a manifest the fetcher wrote, so `npm install` cannot
+silently swap your library back to beds.
+
+Tracks carry `tags`, and that is how a station name chooses its own music: `tracksForName()` in
+`server/stations.js` matches the words someone typed against those tags, so `sangeet` and
+`monsoon window` open on different songs. This is the opposite of a preset list — a name matching
+nothing gets the whole library, an untagged library is never filtered, and the station's own identity
+remains the only thing that keys state.
+
+Or drop your own files into `public/audio/` and run `npm run audio:scan`. Nothing in the sync path
+knows or cares what the audio is.
 
 ---
 
