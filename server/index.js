@@ -40,12 +40,21 @@ const MIME = {
 	".mp3": "audio/mpeg",
 	".m4a": "audio/mp4",
 	".ogg": "audio/ogg",
+	".opus": "audio/ogg",
+	".flac": "audio/flac",
 	".svg": "image/svg+xml",
 	".png": "image/png",
 	".ico": "image/x-icon",
 	".webmanifest": "application/manifest+json",
 	".txt": "text/plain; charset=utf-8",
 }
+
+/**
+ * Audio never changes at a given URL, so it is served immutable and both the
+ * browser and the service worker may keep it forever. Everything else must be
+ * able to change on deploy. Keep this in step with isAudioRequest() in sw.js.
+ */
+const IMMUTABLE_EXTENSIONS = new Set([".wav", ".mp3", ".m4a", ".ogg", ".opus", ".flac"])
 
 function loadTracks() {
 	const manifestPath = join(PUBLIC_DIR, "audio", "tracks.json")
@@ -163,9 +172,9 @@ function serveStatic(req, res, pathname) {
 	if (existsSync(target) && statSync(target).isFile()) {
 		const extension = target.slice(target.lastIndexOf("."))
 		const headers = { "content-type": MIME[extension] ?? "application/octet-stream" }
-		// Audio never changes at a given URL, so let both the browser and the service
-		// worker keep it forever. Everything else must be able to change on deploy.
-		headers["cache-control"] = extension === ".wav" ? "public, max-age=31536000, immutable" : "no-cache"
+		headers["cache-control"] = IMMUTABLE_EXTENSIONS.has(extension)
+			? "public, max-age=31536000, immutable"
+			: "no-cache"
 		headers["accept-ranges"] = "bytes"
 		res.writeHead(200, headers)
 		createReadStream(target).pipe(res)
