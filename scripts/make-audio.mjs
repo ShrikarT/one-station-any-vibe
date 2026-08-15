@@ -11,10 +11,11 @@
  * anything resembling a preset list of stations. See tracksForName() in
  * server/stations.js. For real music instead of these, see scripts/fetch-songs.mjs.
  *
- *   npm run audio
+ *   npm run audio            beds, unless a real library is already here
+ *   npm run audio -- --force beds, regardless
  */
 
-import { mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -44,6 +45,32 @@ const TRACKS = [
 	{ id: "cassette-side-b", title: "Cassette, Side B", seconds: 28, seed: 707, rootMidi: 62, scale: "bhoop", bpm: 96, brightness: 3600, tags: ["cassette", "tape", "retro", "nostalgia", "90s", "radio"] },
 	{ id: "long-drive-ghat", title: "Long Drive, Ghat Road", seconds: 42, seed: 808, rootMidi: 48, scale: "malkauns", bpm: 64, brightness: 2200, tags: ["drive", "ghat", "road", "highway", "night", "travel", "trip"] },
 ]
+
+/**
+ * Is there already a real library here?
+ *
+ * This script runs on postinstall, so without this check an npm install throws
+ * away whatever scripts/fetch-songs.mjs downloaded. Both halves matter: the
+ * manifest has to say it came from the fetcher, AND the files it names have to
+ * exist. A manifest committed from another machine passes the first test and
+ * fails the second, and regenerating the beds is the right way to be wrong.
+ */
+function realLibraryPresent() {
+	const manifestPath = join(OUT_DIR, "tracks.json")
+	if (!existsSync(manifestPath)) return false
+	try {
+		const existing = JSON.parse(readFileSync(manifestPath, "utf8"))
+		if (existing.generatedBy !== "scripts/fetch-songs.mjs") return false
+		const tracks = Array.isArray(existing.tracks) ? existing.tracks : []
+		if (tracks.length === 0) return false
+		return tracks.every((track) => {
+			const filename = String(track.src ?? "").split("/").pop()
+			return Boolean(filename) && existsSync(join(OUT_DIR, filename))
+		})
+	} catch (error) {
+		return false // unreadable manifest: treat it as absent
+	}
+}
 
 /** Deterministic PRNG, so the same seed always renders the same file. */
 function mulberry32(seed) {
@@ -184,6 +211,12 @@ function toWav(samples) {
 		buffer.writeInt16LE(Math.round(clamped * 32767), 44 + i * 2)
 	}
 	return buffer
+}
+
+if (!process.argv.includes("--force") && realLibraryPresent()) {
+	console.log("public/audio/tracks.json is a real library from scripts/fetch-songs.mjs \u2014 leaving it alone.")
+	console.log("to render the synth beds anyway:  npm run audio -- --force")
+	process.exit(0)
 }
 
 mkdirSync(OUT_DIR, { recursive: true })
