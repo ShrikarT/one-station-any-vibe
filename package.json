@@ -14,6 +14,7 @@
 		"smoke": "node scripts/smoke.mjs",
 		"audio": "node scripts/make-audio.mjs",
 		"audio:scan": "node scripts/use-my-audio.mjs",
+		"songs": "node scripts/fetch-songs.mjs",
 		"build:sync": "tsc --project tsconfig.build.json",
 		"typecheck": "tsc --project tsconfig.json",
 		"postinstall": "node scripts/make-audio.mjs"

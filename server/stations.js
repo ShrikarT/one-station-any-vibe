@@ -5,6 +5,10 @@
  * because somebody typed a name; the id derived from that name is the key its
  * playback state and its membership are stored under. Two different names are two
  * different rooms, with unrelated tracks and unrelated clocks.
+ *
+ * The name does one more job: the words in it are matched against track tags, so
+ * a station called "sangeet" opens on different music from one called "monsoon
+ * window". That is seeding, not presetting - see tracksForName below.
  */
 
 import { EventEmitter } from "node:events"
@@ -46,6 +50,54 @@ export function slugifyStationName(name) {
 
 	if (slug) return slug
 	return `station-${fnv1a(trimmed).toString(36)}`
+}
+
+/** The words in a name, long enough to be worth matching on. */
+function wordsIn(name) {
+	return String(name ?? "")
+		.toLowerCase()
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim()
+		.split(/\s+/)
+		.filter((word) => word.length > 2)
+}
+
+/**
+ * Choose the pool of tracks a station opens with, from its name alone.
+ *
+ * "trucker's cab, 3am" leans on the late-night road tracks; "sangeet" leans on
+ * the loud ones. Note what this is not: there is no table of known station names
+ * anywhere. The name stays free text, the tags live on the tracks, and the match
+ * is done at station-creation time.
+ *
+ * Two deliberate escape hatches, both of which matter more than the feature:
+ *   - fewer than two matches falls back to the whole library, because a station
+ *     that loops one song forever is worse than one that ignores its own name
+ *   - a library with no tags is never filtered, so an install that has only the
+ *     synthesised beds, or somebody's own folder of mp3s, behaves exactly as it
+ *     did before this existed
+ */
+export function tracksForName(tracks, name) {
+	const words = wordsIn(name)
+	if (words.length === 0) return tracks
+
+	const matched = tracks.filter((track) => {
+		const tags = Array.isArray(track.tags) ? track.tags : []
+		return tags.some((raw) => {
+			const tag = String(raw).toLowerCase()
+			return tag === word_match(tag, words)
+		})
+	})
+
+	return matched.length >= 2 ? matched : tracks
+}
+
+/** True when any word in the name is the tag, a prefix of it, or extends it. */
+function word_match(tag, words) {
+	const hit = words.find((word) => tag === word || tag.startsWith(word) || word.startsWith(tag))
+	return hit === undefined ? null : tag
 }
 
 /**
@@ -176,7 +228,9 @@ export class StationRegistry extends EventEmitter {
 		const existing = this.stations.get(id)
 		if (existing) return { station: existing, created: false }
 
-		const station = new Station(id, String(name).trim(), this.tracks, now)
+		// The name picks the music as well as the room.
+		const pool = tracksForName(this.tracks, name)
+		const station = new Station(id, String(name).trim(), pool, now)
 		this.stations.set(id, station)
 		this.scheduleAdvance(station)
 		this.emit("station:created", { id: station.id, name: station.name })
