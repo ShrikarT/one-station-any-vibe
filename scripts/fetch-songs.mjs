@@ -11,12 +11,13 @@
  *   node scripts/fetch-songs.mjs --limit 6       just the first six
  *   node scripts/fetch-songs.mjs --force         re-download what is already here
  *
- * Needs yt-dlp and ffmpeg on PATH:
+ * Needs yt-dlp and ffmpeg:
  *   winget install yt-dlp.yt-dlp && winget install Gyan.FFmpeg     (Windows)
  *   brew install yt-dlp ffmpeg                                     (macOS)
  *   pipx install yt-dlp                                            (anywhere else)
  *
- * Then open a new terminal, or the PATH change will not have reached this one.
+ * They do not have to be on PATH — see locate(). If they are somewhere unusual:
+ *   YT_DLP=/path/to/yt-dlp FFPROBE=/path/to/ffprobe node scripts/fetch-songs.mjs
  */
 
 import { spawnSync } from "node:child_process"
@@ -27,6 +28,7 @@ import { fileURLToPath } from "node:url"
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const AUDIO_DIR = join(ROOT, "public", "audio")
 const MANIFEST = join(AUDIO_DIR, "tracks.json")
+const IS_WINDOWS = process.platform === "win32"
 
 /**
  * The library, in four moods.
@@ -79,14 +81,79 @@ function arg(flag) {
 	return index === -1 ? null : process.argv[index + 1]
 }
 
-function have(binary) {
-	const probe = spawnSync(binary, ["--version"], { stdio: "ignore" })
-	return probe.status === 0
+/** Does this command actually run? The only test that means anything. */
+function runsOk(command, args) {
+	try {
+		return spawnSync(command, args, { stdio: "ignore" }).status === 0
+	} catch (error) {
+		return false
+	}
 }
 
-function durationMsOf(file) {
+/** Depth-limited hunt for an executable. Returns the first match. */
+function findUnder(dir, filename, depth = 4) {
+	if (depth < 0 || !existsSync(dir)) return null
+
+	let entries
+	try {
+		entries = readdirSync(dir, { withFileTypes: true })
+	} catch (error) {
+		return null // permissions, junctions, OneDrive placeholders — just move on
+	}
+
+	// Files before directories: the shallowest match wins.
+	for (const entry of entries) {
+		if (entry.isFile() && entry.name.toLowerCase() === filename) return join(dir, entry.name)
+	}
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue
+		const found = findUnder(join(dir, entry.name), filename, depth - 1)
+		if (found) return found
+	}
+	return null
+}
+
+/**
+ * Find a binary without trusting PATH.
+ *
+ * winget installs these happily and then adds its shim directory to PATH by
+ * editing the user environment, which a shell that is already open never sees —
+ * and neither does an editor that was launched before the install. Opening a new
+ * terminal inside that editor does not help either, because it inherits the
+ * editor's environment. Rather than explain that to everyone who clones this,
+ * look in the places winget actually puts things.
+ */
+function locate(name, versionArgs, envVar) {
+	const override = process.env[envVar]
+	if (override && runsOk(override, versionArgs)) return override
+
+	// The normal case, and the fast one.
+	if (runsOk(name, versionArgs)) return name
+
+	const filename = IS_WINDOWS ? `${name}.exe` : name
+	const localAppData = process.env.LOCALAPPDATA ?? ""
+	const searchRoots = [
+		ROOT, // dropped next to the project
+		join(ROOT, "bin"),
+	]
+
+	if (IS_WINDOWS && localAppData) {
+		searchRoots.unshift(
+			join(localAppData, "Microsoft", "WinGet", "Links"), // the shims
+			join(localAppData, "Microsoft", "WinGet", "Packages"), // the real thing
+		)
+	}
+
+	for (const root of searchRoots) {
+		const found = findUnder(root, filename.toLowerCase())
+		if (found && runsOk(found, versionArgs)) return found
+	}
+	return null
+}
+
+function durationMsOf(ffprobe, file) {
 	const probe = spawnSync(
-		"ffprobe",
+		ffprobe,
 		["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file],
 		{ encoding: "utf8" },
 	)
@@ -100,41 +167,43 @@ function existingFileFor(id) {
 	return match ? join(AUDIO_DIR, match) : null
 }
 
-/** Every way to install the two binaries, since the answer differs per machine. */
-function installHint() {
+function installHint(missing) {
+	console.error(`${missing} could not be found, on PATH or anywhere obvious.\n`)
 	console.error("  Windows:  winget install yt-dlp.yt-dlp")
 	console.error("            winget install Gyan.FFmpeg")
 	console.error("  macOS:    brew install yt-dlp ffmpeg")
 	console.error("  else:     pipx install yt-dlp   (and install ffmpeg)")
 	console.error("")
-	console.error("Then open a NEW terminal. A shell that was already running keeps its old")
-	console.error("PATH, so retrying in this one will fail the same way.")
+	console.error("Already installed? Point at it directly, no PATH needed:")
+	console.error("  Windows:  $env:YT_DLP=\"C:\\path\\to\\yt-dlp.exe\"; npm run songs")
+	console.error("  else:     YT_DLP=/path/to/yt-dlp npm run songs")
 	console.error("")
-	console.error("Not worth the detour? The synthesised beds already work \u2014 just npm start.")
+	console.error("Or skip it entirely \u2014 the synthesised beds already work: npm start")
 	console.error("Or drop your own mp3s into public/audio/ and run: npm run audio:scan")
 }
 
-function download(entry) {
+function download(ytDlp, ffmpegDir, entry) {
 	const target = join(AUDIO_DIR, `${entry.id}.%(ext)s`)
-	const result = spawnSync(
-		"yt-dlp",
-		[
-			"--no-playlist",
-			"--extract-audio",
-			"--audio-format", "mp3",
-			"--audio-quality", "0",
-			// A search, not a hardcoded id: ids rot, titles do not.
-			"--default-search", "ytsearch1",
-			"--match-filter", "duration < 900",
-			"--no-warnings",
-			"--quiet",
-			"--progress",
-			"-o", target,
-			entry.search,
-		],
-		{ stdio: ["ignore", "inherit", "inherit"] },
-	)
-	return result.status === 0
+	const args = [
+		"--no-playlist",
+		"--extract-audio",
+		"--audio-format", "mp3",
+		"--audio-quality", "0",
+		// A search, not a hardcoded id: ids rot, titles do not.
+		"--default-search", "ytsearch1",
+		"--match-filter", "duration < 900",
+		"--no-warnings",
+		"--quiet",
+		"--progress",
+		"-o", target,
+	]
+
+	// yt-dlp does the download itself but shells out to ffmpeg to make the mp3. If
+	// we found ffmpeg somewhere off PATH, yt-dlp will not find it on its own.
+	if (ffmpegDir) args.push("--ffmpeg-location", ffmpegDir)
+
+	args.push(entry.search)
+	return spawnSync(ytDlp, args, { stdio: ["ignore", "inherit", "inherit"] }).status === 0
 }
 
 async function main() {
@@ -142,16 +211,22 @@ async function main() {
 	const limit = Number(arg("--limit") ?? CATALOGUE.length)
 	const force = process.argv.includes("--force")
 
-	if (!have("yt-dlp")) {
-		console.error("yt-dlp is not on PATH.\n")
-		installHint()
+	const ytDlp = locate("yt-dlp", ["--version"], "YT_DLP")
+	if (!ytDlp) {
+		installHint("yt-dlp")
 		process.exit(1)
 	}
-	if (!have("ffprobe")) {
-		console.error("ffmpeg/ffprobe is not on PATH. yt-dlp needs it to write mp3s.\n")
-		installHint()
+
+	// -version, one dash: ffprobe rejects the GNU-style spelling.
+	const ffprobe = locate("ffprobe", ["-version"], "FFPROBE")
+	if (!ffprobe) {
+		installHint("ffmpeg/ffprobe")
 		process.exit(1)
 	}
+
+	if (ytDlp !== "yt-dlp") console.log(`yt-dlp:  ${ytDlp}`)
+	if (ffprobe !== "ffprobe") console.log(`ffmpeg:  ${dirname(ffprobe)}`)
+	const ffmpegDir = ffprobe === "ffprobe" ? null : dirname(ffprobe)
 
 	mkdirSync(AUDIO_DIR, { recursive: true })
 
@@ -174,7 +249,7 @@ async function main() {
 			console.log(`${position}  have   ${entry.title}`)
 		} else {
 			console.log(`${position}  fetch  ${entry.title} \u2014 ${entry.artist}`)
-			if (!download(entry)) {
+			if (!download(ytDlp, ffmpegDir, entry)) {
 				console.log(`      \u2717 could not fetch, skipping`)
 				failed += 1
 				continue
@@ -187,7 +262,7 @@ async function main() {
 			}
 		}
 
-		const durationMs = durationMsOf(file)
+		const durationMs = durationMsOf(ffprobe, file)
 		if (!durationMs) {
 			console.log(`      \u2717 unreadable duration, skipping`)
 			failed += 1
