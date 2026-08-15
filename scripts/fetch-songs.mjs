@@ -12,8 +12,11 @@
  *   node scripts/fetch-songs.mjs --force         re-download what is already here
  *
  * Needs yt-dlp and ffmpeg on PATH:
- *   brew install yt-dlp ffmpeg      (macOS)
- *   pipx install yt-dlp             (anywhere with python)
+ *   winget install yt-dlp.yt-dlp && winget install Gyan.FFmpeg     (Windows)
+ *   brew install yt-dlp ffmpeg                                     (macOS)
+ *   pipx install yt-dlp                                            (anywhere else)
+ *
+ * Then open a new terminal, or the PATH change will not have reached this one.
  */
 
 import { spawnSync } from "node:child_process"
@@ -97,6 +100,20 @@ function existingFileFor(id) {
 	return match ? join(AUDIO_DIR, match) : null
 }
 
+/** Every way to install the two binaries, since the answer differs per machine. */
+function installHint() {
+	console.error("  Windows:  winget install yt-dlp.yt-dlp")
+	console.error("            winget install Gyan.FFmpeg")
+	console.error("  macOS:    brew install yt-dlp ffmpeg")
+	console.error("  else:     pipx install yt-dlp   (and install ffmpeg)")
+	console.error("")
+	console.error("Then open a NEW terminal. A shell that was already running keeps its old")
+	console.error("PATH, so retrying in this one will fail the same way.")
+	console.error("")
+	console.error("Not worth the detour? The synthesised beds already work \u2014 just npm start.")
+	console.error("Or drop your own mp3s into public/audio/ and run: npm run audio:scan")
+}
+
 function download(entry) {
 	const target = join(AUDIO_DIR, `${entry.id}.%(ext)s`)
 	const result = spawnSync(
@@ -126,13 +143,13 @@ async function main() {
 	const force = process.argv.includes("--force")
 
 	if (!have("yt-dlp")) {
-		console.error("yt-dlp is not on PATH.")
-		console.error("  macOS:  brew install yt-dlp ffmpeg")
-		console.error("  else:   pipx install yt-dlp   (and install ffmpeg)")
+		console.error("yt-dlp is not on PATH.\n")
+		installHint()
 		process.exit(1)
 	}
 	if (!have("ffprobe")) {
-		console.error("ffmpeg/ffprobe is not on PATH. yt-dlp needs it to write mp3s.")
+		console.error("ffmpeg/ffprobe is not on PATH. yt-dlp needs it to write mp3s.\n")
+		installHint()
 		process.exit(1)
 	}
 
