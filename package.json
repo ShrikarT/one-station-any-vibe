@@ -11,7 +11,9 @@
 		"start": "node server/index.js",
 		"dev": "node --watch server/index.js",
 		"test": "node --import tsx --test lib/sync/clock.test.ts",
+		"smoke": "node scripts/smoke.mjs",
 		"audio": "node scripts/make-audio.mjs",
+		"audio:scan": "node scripts/use-my-audio.mjs",
 		"build:sync": "tsc --project tsconfig.build.json",
 		"typecheck": "tsc --project tsconfig.json",
 		"postinstall": "node scripts/make-audio.mjs"

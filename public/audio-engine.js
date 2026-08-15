@@ -8,6 +8,20 @@
 
 import { DRIFT_TOLERANCE_MS, driftMs, planPlayback } from "/lib/sync/clock.js"
 
+/**
+ * Stopping one buffer and starting another mid-waveform is a discontinuity, and a
+ * discontinuity is a click. Fade across every re-seek instead.
+ */
+const RESEEK_FADE_S = 0.012
+/**
+ * Drift has to be real before we act on it. A single reading can be off because
+ * of a scheduler hiccup or one slow ping, and correcting on that would re-seek the
+ * track every few seconds — which sounds far worse than the drift it is fixing.
+ */
+const DRIFT_STRIKES_REQUIRED = 2
+const CORRECTION_COOLDOWN_MS = 8_000
+const LEVEL = 0.9
+
 export class AudioEngine {
 	constructor(onEvent = () => {}) {
 		this.context = null
@@ -22,6 +36,9 @@ export class AudioEngine {
 		this.current = null
 		this.muted = false
 		this.onEvent = onEvent
+		/** consecutive readings past tolerance, see correctDriftIfNeeded */
+		this.driftStrikes = 0
+		this.lastCorrectionAt = 0
 	}
 
 	ensureContext() {
@@ -29,7 +46,7 @@ export class AudioEngine {
 		const Context = window.AudioContext ?? window.webkitAudioContext
 		this.context = new Context({ latencyHint: "interactive" })
 		this.gain = this.context.createGain()
-		this.gain.gain.value = 0.9
+		this.gain.gain.value = LEVEL
 		this.gain.connect(this.context.destination)
 		return this.context
 	}
@@ -93,6 +110,15 @@ export class AudioEngine {
 			loop: true,
 		})
 
+		// Duck before tearing the old source out. The lead time planPlayback leaves us
+		// is what makes this possible without a gap.
+		const fadeFrom = context.currentTime
+		if (this.source) {
+			this.gain.gain.cancelScheduledValues(fadeFrom)
+			this.gain.gain.setValueAtTime(this.gain.gain.value, fadeFrom)
+			this.gain.gain.linearRampToValueAtTime(0, fadeFrom + RESEEK_FADE_S)
+		}
+
 		this.stop()
 
 		if (snapshot.paused) {
@@ -108,6 +134,11 @@ export class AudioEngine {
 		source.connect(this.gain)
 		// Scheduled for a moment in the near future, seeking to the elapsed position.
 		source.start(plan.startAtContextTime, plan.offsetSeconds)
+
+		// Come back up exactly as the new source begins, so the seam is inaudible.
+		const fadeInAt = Math.max(plan.startAtContextTime, fadeFrom + RESEEK_FADE_S)
+		this.gain.gain.setValueAtTime(0, fadeInAt)
+		this.gain.gain.linearRampToValueAtTime(this.muted ? 0 : LEVEL, fadeInAt + RESEEK_FADE_S * 2)
 
 		this.source = source
 		this.current = {
@@ -137,7 +168,10 @@ export class AudioEngine {
 		this.muted = muted
 		if (!this.gain || !this.context) return
 		// A short ramp instead of a jump, so muting does not click.
-		this.gain.gain.setTargetAtTime(muted ? 0 : 0.9, this.context.currentTime, 0.015)
+		const now = this.context.currentTime
+		this.gain.gain.cancelScheduledValues(now)
+		this.gain.gain.setValueAtTime(this.gain.gain.value, now)
+		this.gain.gain.setTargetAtTime(muted ? 0 : LEVEL, now, 0.015)
 	}
 
 	/** Where this device actually is, according to its audio clock. */
@@ -180,11 +214,27 @@ export class AudioEngine {
 	 * Audio hardware does not run at exactly wall-clock rate, so devices separate
 	 * over a long session. Past the tolerance, reschedule from the same snapshot —
 	 * a single clean re-seek, rather than pitch-shifting via playbackRate.
+	 *
+	 * Two guards keep the cure from being worse than the disease: the drift has to
+	 * show up on consecutive readings, and corrections are rate-limited. Without
+	 * them a device sitting just over the tolerance re-seeks on every check, which
+	 * is audible as a stutter every few seconds.
 	 */
 	async correctDriftIfNeeded() {
 		if (!this.current || !this.source) return 0
 		const drift = this.driftMs()
-		if (Math.abs(drift) <= DRIFT_TOLERANCE_MS) return drift
+
+		if (Math.abs(drift) <= DRIFT_TOLERANCE_MS) {
+			this.driftStrikes = 0
+			return drift
+		}
+
+		this.driftStrikes += 1
+		if (this.driftStrikes < DRIFT_STRIKES_REQUIRED) return drift
+		if (Date.now() - this.lastCorrectionAt < CORRECTION_COOLDOWN_MS) return drift
+
+		this.driftStrikes = 0
+		this.lastCorrectionAt = Date.now()
 		await this.applySnapshot(this.current.snapshot, "drift")
 		this.onEvent({ type: "drift-corrected", driftMs: drift })
 		return drift
