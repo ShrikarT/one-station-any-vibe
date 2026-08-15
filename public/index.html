@@ -1,121 +1,98 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<title>One Station, Any Vibe</title>
-		<meta
-			name="description"
-			content="Name a station. Anyone who joins hears the same track at the same second."
-		/>
-		<meta name="theme-color" content="#0b0a09" />
-		<link rel="stylesheet" href="/styles.css" />
-		<link
-			rel="icon"
-			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230b0a09'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23e8a13c' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23e8a13c'/%3E%3C/svg%3E"
-		/>
-	</head>
-	<body>
-		<div class="grain" aria-hidden="true"></div>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#06090F" />
+<title>अड्डा — one station, any vibe</title>
+<meta name="description" content="Name a station. Anyone who types the same name hears the same song at the same second." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rozha+One&display=swap" />
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2306090F'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23E8A13C'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='%2306090F'/%3E%3C/svg%3E" />
+</head>
+<body>
 
-		<header class="top">
-			<div class="wordmark">one station, any vibe</div>
-			<div id="status" class="status" data-state="connecting">connecting</div>
-		</header>
+<div class="scene" aria-hidden="true">
+	<img class="scene-art" src="/art/dhaba-night.svg" alt="" />
+	<div class="scene-shade"></div>
+	<div class="scene-grain"></div>
+</div>
 
-		<!-- Screen one: name a station. No preset list, by design. -->
-		<main id="landing" class="landing">
-			<h1>What are we listening to?</h1>
-			<p class="sub">
-				Name it anything. Whoever types the same name lands in the same room, on the
-				same second of the same track.
-			</p>
+<header class="topbar">
+	<span class="mark">एक अड्डा</span>
+	<span id="status" class="status" data-state="connecting">connecting</span>
+</header>
 
-			<form id="joinForm" class="join" autocomplete="off">
-				<input
-					id="stationName"
-					name="stationName"
-					type="text"
-					placeholder="trucker's cab, 3am"
-					maxlength="80"
-					aria-label="Station name"
-					required
-				/>
-				<button type="submit">Join</button>
-			</form>
+<main>
 
-			<section class="live">
-				<h2>Live now</h2>
-				<ul id="stationList" class="station-list">
-					<li class="empty">Nothing playing yet. Start one.</li>
-				</ul>
-			</section>
-		</main>
+	<section id="landing" class="screen landing">
+		<h1 class="display">अड्डा</h1>
+		<p class="tagline">one station · any vibe · same second</p>
 
-		<!-- Screen two: the deck. -->
-		<main id="stage" class="stage" hidden>
-			<div class="deck">
+		<form id="joinForm" class="join" autocomplete="off">
+			<input id="stationName" class="join-input" type="text" name="station" maxlength="60" placeholder="trucker's cab, 3am" aria-label="Station name" />
+			<button class="join-go" type="submit">tune in</button>
+		</form>
+
+		<p class="hint">name it anything. whoever types the same name lands on the same second of the same song.</p>
+
+		<ul id="stationList" class="stations"></ul>
+	</section>
+
+	<section id="stage" class="screen stage" hidden>
+		<h1 id="stationTitle" class="display station-name">—</h1>
+		<p class="stage-sub">
+			<span id="listeners">0 listening</span>
+			<span id="lateNotice" class="chip" hidden>joined mid-song</span>
+		</p>
+
+		<div class="stage-tools">
+			<button id="shareStation" class="ghost" type="button">copy invite</button>
+			<button id="simulateDrop" class="ghost" type="button">simulate drop</button>
+			<button id="leaveStation" class="ghost" type="button">leave</button>
+		</div>
+
+		<div class="dock">
+			<dl class="telemetry">
+				<div><dt>clock offset</dt><dd id="offset">—</dd></div>
+				<div><dt>round trip</dt><dd id="rtt">—</dd></div>
+				<div><dt>drift</dt><dd id="drift">—</dd></div>
+				<div><dt>cached</dt><dd id="cached">0 files</dd></div>
+			</dl>
+
+			<div class="player">
 				<div class="disc" aria-hidden="true"><span class="spindle"></span></div>
 
-				<div class="now">
-					<h2 id="stationTitle">station</h2>
-					<div class="meta">
-						<span id="listeners">0 listening</span>
-						<span id="lateNotice" class="late" hidden>joined mid-track</span>
+				<div class="meta">
+					<div class="titles">
+						<strong id="trackTitle">—</strong>
+						<span id="trackArtist">—</span>
 					</div>
-					<div id="trackTitle" class="track-title">—</div>
-					<div id="trackArtist" class="track-artist">—</div>
+					<div id="progress" class="progress"><span class="progress-fill"></span></div>
+					<div class="times"><span id="position">0:00</span><span id="duration">0:00</span></div>
+				</div>
+
+				<div class="controls">
+					<button id="previous" class="pb" type="button" aria-label="Previous track">‹</button>
+					<button id="playPause" class="pb play" type="button" data-playing="true" aria-label="Play or pause">‖</button>
+					<button id="next" class="pb" type="button" aria-label="Next track">›</button>
+					<button id="mute" class="pb word" type="button" data-muted="false">mute</button>
 				</div>
 			</div>
 
-			<div class="progress" role="progressbar" aria-label="Track position">
-				<div id="progress" class="progress-fill"></div>
-			</div>
-			<div class="times">
-				<span id="position">0:00</span>
-				<span id="duration">0:00</span>
-			</div>
-
-			<div class="controls">
-				<button id="previous" class="ctl" title="Previous track" aria-label="Previous track">‹‹</button>
-				<button id="playPause" class="ctl play" data-playing="false" title="Play or pause for everyone">▶</button>
-				<button id="next" class="ctl" title="Next track" aria-label="Next track">››</button>
-				<button id="mute" class="ctl quiet" data-muted="false" title="Mute this device only">mute</button>
-			</div>
-
-			<p class="hint">Skip moves the station for everyone. Mute is yours alone.</p>
-
-			<section class="telemetry" aria-label="Sync telemetry">
-				<div class="cell">
-					<span class="label">clock offset</span>
-					<span id="offset" class="value">—</span>
-				</div>
-				<div class="cell">
-					<span class="label">round trip</span>
-					<span id="rtt" class="value">—</span>
-				</div>
-				<div class="cell">
-					<span class="label">drift</span>
-					<span id="drift" class="value">—</span>
-				</div>
-				<div class="cell">
-					<span class="label">cached audio</span>
-					<span id="cached" class="value">—</span>
-				</div>
-			</section>
-
-			<div class="actions">
-				<button id="shareStation" class="ghost">Copy invite link</button>
-				<button id="simulateDrop" class="ghost danger">Simulate a dropped connection</button>
-				<button id="leaveStation" class="ghost">Leave</button>
-			</div>
-
-			<section class="log-wrap">
-				<h3>What just happened</h3>
+			<details class="diag">
+				<summary>sync log</summary>
 				<ul id="log" class="log"></ul>
-			</section>
-		</main>
+			</details>
+		</div>
+	</section>
 
-		<script type="module" src="/app.js"></script>
-	</body>
+</main>
+
+<a class="credit" href="https://x.com/0xshrikar" target="_blank" rel="noopener">made by <u>shrikar</u></a>
+
+<script type="module" src="/app.js"></script>
+</body>
 </html>

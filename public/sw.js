@@ -21,6 +21,7 @@ const SHELL_ASSETS = [
 	"/app.js",
 	"/audio-engine.js",
 	"/lib/sync/clock.js",
+	"/art/dhaba-night.svg",
 	"/audio/tracks.json",
 ]
 
