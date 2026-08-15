@@ -1,0 +1,17 @@
+{
+	"//": "Emit-only config: lib/sync/clock.ts -> public/lib/sync/clock.js, so the browser can import the same maths the tests run against, with no bundler.",
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2022", "DOM"],
+		"strict": true,
+		"declaration": false,
+		"removeComments": false,
+		"rootDir": "lib/sync",
+		"outDir": "public/lib/sync",
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"files": ["lib/sync/clock.ts"]
+}

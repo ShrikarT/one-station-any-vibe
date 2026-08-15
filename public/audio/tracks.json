@@ -1,0 +1,61 @@
+{
+	"generatedBy": "scripts/make-audio.mjs",
+	"tracks": [
+		{
+			"id": "chai-stall-morning",
+			"title": "Chai Stall Morning",
+			"artist": "Station Bed",
+			"src": "/audio/chai-stall-morning.wav",
+			"durationMs": 32000
+		},
+		{
+			"id": "hill-road-dhaba",
+			"title": "Hill Road Dhaba",
+			"artist": "Station Bed",
+			"src": "/audio/hill-road-dhaba.wav",
+			"durationMs": 36000
+		},
+		{
+			"id": "truckers-cab-night",
+			"title": "Trucker's Cab, 3AM",
+			"artist": "Station Bed",
+			"src": "/audio/truckers-cab-night.wav",
+			"durationMs": 40000
+		},
+		{
+			"id": "barber-shop-radio",
+			"title": "Barber Shop Radio",
+			"artist": "Station Bed",
+			"src": "/audio/barber-shop-radio.wav",
+			"durationMs": 30000
+		},
+		{
+			"id": "platform-four",
+			"title": "Platform Four",
+			"artist": "Station Bed",
+			"src": "/audio/platform-four.wav",
+			"durationMs": 34000
+		},
+		{
+			"id": "monsoon-window",
+			"title": "Monsoon Window",
+			"artist": "Station Bed",
+			"src": "/audio/monsoon-window.wav",
+			"durationMs": 38000
+		},
+		{
+			"id": "cassette-side-b",
+			"title": "Cassette, Side B",
+			"artist": "Station Bed",
+			"src": "/audio/cassette-side-b.wav",
+			"durationMs": 28000
+		},
+		{
+			"id": "long-drive-ghat",
+			"title": "Long Drive, Ghat Road",
+			"artist": "Station Bed",
+			"src": "/audio/long-drive-ghat.wav",
+			"durationMs": 42000
+		}
+	]
+}

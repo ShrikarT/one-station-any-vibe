@@ -1,0 +1,27 @@
+{
+	"name": "one-station-any-vibe",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Name a station, anyone who joins hears the same track at the same second.",
+	"type": "module",
+	"engines": {
+		"node": ">=20.12"
+	},
+	"scripts": {
+		"start": "node server/index.js",
+		"dev": "node --watch server/index.js",
+		"test": "node --import tsx --test lib/sync/clock.test.ts",
+		"audio": "node scripts/make-audio.mjs",
+		"build:sync": "tsc --project tsconfig.build.json",
+		"typecheck": "tsc --project tsconfig.json",
+		"postinstall": "node scripts/make-audio.mjs"
+	},
+	"dependencies": {
+		"ws": "^8.18.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"tsx": "^4.19.2",
+		"typescript": "^5.7.2"
+	}
+}

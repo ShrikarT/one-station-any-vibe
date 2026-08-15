@@ -1,0 +1,19 @@
+{
+	"//": "Typecheck config. The emit config is tsconfig.build.json, which compiles lib/sync/clock.ts into public/lib/sync/clock.js for the browser.",
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2022", "DOM"],
+		"types": ["node"],
+		"strict": true,
+		"noUnusedLocals": true,
+		"noImplicitOverride": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": ["lib/**/*.ts"]
+}
